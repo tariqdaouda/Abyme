@@ -1,10 +1,21 @@
 from . abstract import _Stage
+import numpy
 
 def filter_store(store, fields=None):
     if fields is None :
         return store
     else :
         return{ key: store[key] for key in fields }
+
+def flatten_dict(self, dct, separator=".", res = None):
+    if res is None :
+        res = {}
+
+    for k, v in dct.items():
+        if type(v) is dict :
+            filter_store[k] = 
+        else :
+            res[k] = v
 
 def apply_list_transform(value, transforms):
     if transforms is None :
@@ -143,7 +154,7 @@ class CSVStreamSaver(_Stage):
         store = {}
         for key, value in tmp_store.items():
             kkey = apply_list_transform(key, self.fields_tranforms)
-            vvalues = apply_list_transform(value, self.values_tranforms)
+            vvalue = apply_list_transform(value, self.values_tranforms)
             store["%s%s" % (self["prefix"], kkey)] = [vvalue]
         
         store["id"] = [self["line_number"]]
@@ -154,3 +165,57 @@ class CSVStreamSaver(_Stage):
 
     def close(self):
         self.file.close()
+
+class MovingStats(_Stage):
+    """docstring for MovingStats"""
+    def __init__(self, *args, **kwargs):
+        super(MovingStats, self).__init__(["end"], *args, **kwargs)
+    
+    def _init(self, caller_field, window_size=100):
+        self["values"] = numpy.zeros(window_size)
+        self["caller_field"] = caller_field
+        self.counter = 0
+
+    def dig(self, caller):
+        self["values"][self.counter % len(self["values"]) ] = caller[self["caller_field"]]
+        self["average"] = numpy.mean(self["values"])
+        self["std"] = numpy.std(self["values"])
+        self.counter += 1
+        self.events["end"](self)
+
+class Stats(_Stage):
+    """docstring for Stats"""
+    def __init__(self, *args, **kwargs):
+        super(Stats, self).__init__(["end"], *args, **kwargs)
+    
+    def _init(self, caller_field):
+        self["values"] = []
+        self["caller_field"] = caller_field
+        
+    def dig(self, caller):
+        self["values"] .append( caller[self["caller_field"]] )
+        self["average"] = numpy.mean(self["values"])
+        self["std"] = numpy.std(self["values"])
+        self.events["end"](self)
+
+class StoreAggregator(_Stage):
+    """docstring for StoreAggregator"""
+    def __init__(self, *args, **kwargs):
+        super(StoreAggregator, self).__init__(["end"], *args, **kwargs)
+    
+    def _init(self, select_fields, prefix):
+        self["select_fields"] = select_fields
+        self["prefix"] = prefix
+        self["aggregate"] = {}
+
+    def aggregate(self, caller):
+        self["aggregate"].update(
+            filter_store(caller, self["select_fields"])
+        )
+
+    def dig(self, caller):
+        self["values".append( caller[self["caller_field"]] )
+        self["average"] = numpy.mean(self["values"])
+        self["std"] = numpy.std(self["values"])
+        self.events["end"](self)
+
