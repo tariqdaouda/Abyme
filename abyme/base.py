@@ -166,6 +166,14 @@ class CSVStreamSaver(_Stage):
     def close(self):
         self.file.close()
 
+class ThresholdTrigger(_Stage):
+
+class NewExtremumTrigger(_Stage):
+
+class NewLowTrigger(_Stage):
+
+class NewHighTrigger(_Stage):
+
 class MovingStats(_Stage):
     """docstring for MovingStats"""
     def __init__(self, *args, **kwargs):
