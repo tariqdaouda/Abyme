@@ -10,7 +10,7 @@ setup(
 
     version='0.01',
 
-    description='For writting deep and sofisticated loops',
+    description='Deep and Sophisticated Loops',
     long_description='',
 
     url='',
