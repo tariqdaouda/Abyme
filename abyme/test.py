@@ -25,6 +25,9 @@ class TheModelClass(nn.Module):
 
 if __name__ == '__main__':
     
+    import abyme.base as AB
+    import abyme.pyTorch as AB
+
     def get_data_loader(train, mask_target, batch_size=64):
         from torchvision import datasets, transforms
         
@@ -48,12 +51,12 @@ if __name__ == '__main__':
     criterion = torch.nn.modules.loss.MSELoss()
     optimizer = torch.optim.Adagrad(model.parameters(), lr=0.01)
 
-    ground = Ground()
-    looper = IterrationLooper()
-    pp_store = PretyPrintStore()
+    ground = AB.Ground()
+    looper = AB.IterrationLooper()
+    pp_store = AB.PretyPrintStore()
     data_loader = get_data_loader(True, False)
-    data_looper = DataLooper(data_loader)
-    trainer = SupervisedPass(model, optimizer, criterion, True, data_formater)
+    data_looper = AB.DataLooper(data_loader)
+    trainer = AP.SupervisedPass(model, optimizer, criterion, True, data_formater)
 
     ground("dig",
         looper.setup(10)("iteration_start",

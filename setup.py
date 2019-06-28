@@ -8,7 +8,7 @@ here = path.abspath(path.dirname(__file__))
 setup(
     name='abyme',
 
-    version='0.01',
+    version='0.1',
 
     description='Deep and Sophisticated Loops',
     long_description='',
