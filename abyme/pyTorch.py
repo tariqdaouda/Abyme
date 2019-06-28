@@ -1,5 +1,7 @@
 from . abstract import _Stage
 
+class SaveModel(_Stage):
+
 class SupervisedPass(_Stage):
     """docstring for SupervisedPass"""
     def __init__(self, *args, **kwargs):
