@@ -104,7 +104,7 @@ class CSVStreamSaver(_Stage):
     def __init__(self, *args, **kwargs):
         super(CSVStreamSaver, self).__init__(None, *args, **kwargs)
     
-    def _init(self, filemame, prefix=None, select_fields=None, pandas_to_csv_kwargs=None):
+    def _init(self, filemame, prefix=None, select_fields=None, header=True, pandas_to_csv_kwargs=None):
         self["filemame"] = filemame
         if prefix is None:
             self["prefix"] = ""
@@ -112,6 +112,7 @@ class CSVStreamSaver(_Stage):
             self["prefix"] = prefix
         self["select_fields"] = select_fields
         self["line_number"] = 0
+        self["header"] = header
 
         if pandas_to_csv_kwargs is None :
             self.pandas_to_csv_kwargs = {}
@@ -131,5 +132,5 @@ class CSVStreamSaver(_Stage):
         store["id"] = [self["line_number"]]
 
         df = pd.DataFrame.from_dict(store)
-        df.to_csv(self.file, header=True, index=False, **self.pandas_to_csv_kwargs)
+        df.to_csv(self.file, header=self["header"], index=False, **self.pandas_to_csv_kwargs)
         self["line_number"] += 1
