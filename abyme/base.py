@@ -134,3 +134,6 @@ class CSVStreamSaver(_Stage):
         df = pd.DataFrame.from_dict(store)
         df.to_csv(self.file, header=self["header"], index=False, **self.pandas_to_csv_kwargs)
         self["line_number"] += 1
+
+    def close(self):
+        self.file.close()
