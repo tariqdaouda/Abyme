@@ -1,3 +1,23 @@
+# Define model
+class TheModelClass(nn.Module):
+    def __init__(self):
+        super(TheModelClass, self).__init__()
+        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.conv2 = nn.Conv2d(6, 16, 5)
+        self.fc1 = nn.Linear(16 * 5 * 5, 120)
+        self.fc2 = nn.Linear(120, 84)
+        self.fc3 = nn.Linear(84, 10)
+
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = x.view(-1, 16 * 5 * 5)
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = self.fc3(x)
+        return x
+
 if __name__ == '__main__':
     
     def get_data_loader(train, mask_target, batch_size=64):
@@ -16,26 +36,10 @@ if __name__ == '__main__':
         return loader
 
     def data_formater(batch_data):
-        return ( {"horus_input": batch_data[0]}, batch_data[0] )
+        return ( {"horus_input": batch_data[0]}, batch_data[1] )
 
     import villanitools.utils.models.hgn as HGN
-    model = HGN.HolographicUniverse(
-        horus_input_size = 28*28,
-        horus_layer_size = 128,
-        horus_nb_layers = 2,
-        horus_output_size = 1,
-        horus_non_linearity = "sin",
-        prima_materia_name = "normal",
-        prima_materia_sample_size= 128,
-        prima_materia_nb_functions = 10,
-        horus_midgard_scale = 1,
-        jormungandr_layer_size = 128,
-        jormungandr_nb_layers = 6,
-        jormungandr_output_size = 28*28,
-        jormungandr_non_linearity = "sin",
-        midgard_horus_non_linearity = "sin",
-        prima_materia_kwargs=None
-    )
+    model = TheModelClass()
 
     criterion = torch.nn.modules.loss.MSELoss()
     optimizer = torch.optim.Adagrad(model.parameters(), lr=0.01)
