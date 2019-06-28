@@ -1,8 +1,11 @@
+from . abstract import _Stage
 
 class SupervisedPass(_Stage):
     """docstring for SupervisedPass"""
-    def __init__(self, model, optimizer, criterion, update_parameters, inputs_targets_formater):
-        super(SupervisedPass, self).__init__(["start", "end"])
+    def __init__(self, *args, **kwargs):
+        super(SupervisedPass, self).__init__(["start", "end"], *args, **kwargs)
+    
+    def _init(self, model, optimizer, criterion, update_parameters, inputs_targets_formater):
         self["model"] = model
         self["optimizer"] = optimizer
         self["criterion"] = criterion

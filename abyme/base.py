@@ -1,10 +1,10 @@
 from . abstract import _Stage
 
 def filter_store(store, fields=None):
-    if self["fields"] is None :
-        store = caller.store
+    if fields is None :
+        return store
     else :
-        store = { key: caller[key] for key in self["fields"] }
+        return{ key: store[key] for key in fields }
 
 class Ground(_Stage):
     """docstring for Ground"""
@@ -13,6 +13,7 @@ class Ground(_Stage):
     
     def dig(self, caller=None):
         self.events["dig"](self)
+        # print("aaasss", self.events)
 
 class IterrationLooper(_Stage):
     """docstring for IterrationLooper"""
@@ -42,8 +43,9 @@ class PeriodicTrigger(_Stage):
         self["period"] = period
 
     def dig(self, caller):
-        if self['counter'] % self["period"] 
+        if self['counter'] % self["period"] == 0 : 
             self.events["trigger"](caller)
+        self['counter'] += 1
 
 class PrintMessage(_Stage):
     """docstring for PrintMessage"""
@@ -102,18 +104,32 @@ class CSVStreamSaver(_Stage):
     def __init__(self, *args, **kwargs):
         super(CSVStreamSaver, self).__init__(None, *args, **kwargs)
     
-    def _init(self, filemame, prefix=None, store_fields=None):
+    def _init(self, filemame, prefix=None, select_fields=None, pandas_to_csv_kwargs=None):
         self["filemame"] = filemame
         if prefix is None:
             self["prefix"] = ""
         else :
             self["prefix"] = prefix
-        self["store_fields"] = store_fields
+        self["select_fields"] = select_fields
+        self["line_number"] = 0
+
+        if pandas_to_csv_kwargs is None :
+            self.pandas_to_csv_kwargs = {}
+        else :
+            self.pandas_to_csv_kwargs = pandas_to_csv_kwargs    
+            for name in ["header", "index"]:
+                if name in self.pandas_to_csv_kwargs:
+                    raise ValueError("Pandas argument %s has predefided and cannot be changed" % name)
+        
+        self.file = open(filemame, "w")
 
     def dig(self, caller):
         import pandas as pd
-        store = filter_store(caller, self["store_fields"])
-        store = { "%s%s" % (prefix, key) : value for key, value in store.items() }
-        df = pd.DataFrame.from_dict(store)
-        df.to_csv(self["filemame"], mode="a", header=False)
+        store = filter_store(caller, self["select_fields"])
+        store = { "%s%s" % (self["prefix"], key) : [value] for key, value in store.items() }
+        
+        store["id"] = [self["line_number"]]
 
+        df = pd.DataFrame.from_dict(store)
+        df.to_csv(self.file, header=True, index=False, **self.pandas_to_csv_kwargs)
+        self["line_number"] += 1

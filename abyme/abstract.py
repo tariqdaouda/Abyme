@@ -23,6 +23,9 @@ class EventHandler(object):
     def __setitem__(self, i, event):
         self.events[i] = events
 
+    def __repr__(self):
+        return "<%s (#%s), events: %s>" % (self.__class__.__name__, len(self.events), [ k for k in self.events ])
+
 class _Stage(object):
     """docstring for _Stage"""
     def __init__(self, event_names=None, *args, **kwargs):
@@ -66,16 +69,26 @@ class _Stage(object):
 
     def _dig(self, caller):
         if self._must_init:
-            raise AttributeError("Object has not been initialized at creation. Try calling setup function") 
+            raise AttributeError("Object  %s has not been initialized at creation. Try calling setup function" % (self)) 
+        return self.dig(caller)
 
     def dig(self, caller):
-        raise NotImplemented("Must be implemented in child"dante)
+        raise NotImplemented("Must be implemented in child")
 
     def more(self, event_name, *stages):
         for stage in stages :
             self.events[event_name].add(stage)
         return self
 
+    def keys(self):
+        return self.store.keys()
+
+    def values(self):
+        return self.store.values()
+        
+    def items(self):
+        return self.store.items()
+        
     def __call__(self, event_name, *stages):
         return self.more(event_name, *stages)
 
@@ -85,5 +98,5 @@ class _Stage(object):
     def __setitem__(self, k, v):
         self.store[k] = v
 
-    def __str__(self):
-        return "<%s, events: %s>" % (self.__class__.__name__, [ k self.events.keys() ])
+    def __repr__(self):
+        return "<%s, events: %s>" % (self.__class__.__name__, [ k for k in self.events.keys() ])
