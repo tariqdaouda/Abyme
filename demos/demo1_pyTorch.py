@@ -35,8 +35,6 @@ if __name__ == '__main__':
         else :
             target_transform = None
 
-        # reshape_img = lambda x : torch.reshape(x, (-1, ))
-
         mnist_trainset = datasets.MNIST( root='./data', train=train, download=True, transform=transforms.Compose([transforms.ToTensor()]), target_transform=target_transform )
         loader = torch.utils.data.DataLoader(mnist_trainset, batch_size=batch_size, shuffle=not train, num_workers=4)
 
@@ -66,7 +64,7 @@ if __name__ == '__main__':
                         pp_store.setup("last_loss")
                     ),
                     AB.PeriodicTrigger(1)("trigger",
-                        AB.CSVStreamSaver(filemame="test.csv", prefix="momo.", select_fields=["last_loss"], pandas_to_csv_kwargs = {"sep": ";"})
+                        AB.CSVStreamSaver(filemame="test.csv", prefix="DEMO_", select_fields=["last_loss"], pandas_to_csv_kwargs = {"sep": ";"})
                     )
                 )
             )
