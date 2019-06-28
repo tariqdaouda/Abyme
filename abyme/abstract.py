@@ -10,7 +10,7 @@ class EventHandler(object):
     def launch(self, caller):
         for evt in self.events:
             if isinstance(evt, _Stage) :
-                evt.dig(caller)
+                evt._dig(caller)
             else:
                 evt(caller)
 
@@ -30,7 +30,9 @@ class _Stage(object):
         import inspect
 
         self.store = {}
-        self.events = {} 
+        self.events = {}
+        self._must_init = True
+
         if event_names:
             if type(event_names) is str :
                 e_names = [event_names]
@@ -52,13 +54,19 @@ class _Stage(object):
         key_word_args.update(kwargs)
         if len(key_word_args) > 0 :
             self._init(**key_word_args)
+            self._must_init = False
         
     def setup(self, *args, **kwargs):
         self._init(*args, **kwargs)
+        self._must_init = False
         return self
 
     def _init(self, *args , **kwargs):
         pass
+
+    def _dig(self, caller):
+        if self._must_init:
+            raise AttributeError("Object has not been initialized at creation. Try calling setup function") 
 
     def dig(self, caller):
         raise NotImplemented("Must be implemented in child"dante)
@@ -76,3 +84,6 @@ class _Stage(object):
 
     def __setitem__(self, k, v):
         self.store[k] = v
+
+    def __str__(self):
+        return "<%s, events: %s>" % (self.__class__.__name__, [ k self.events.keys() ])
