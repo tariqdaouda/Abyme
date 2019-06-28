@@ -6,6 +6,15 @@ def filter_store(store, fields=None):
     else :
         return{ key: store[key] for key in fields }
 
+def apply_list_transform(value, transforms):
+    if transforms is None :
+        return value
+
+    val = value
+    for trans in transforms:
+        val = trans(val)
+    return val
+
 class Ground(_Stage):
     """docstring for Ground"""
     def __init__(self, *args, **kwargs):
@@ -104,7 +113,7 @@ class CSVStreamSaver(_Stage):
     def __init__(self, *args, **kwargs):
         super(CSVStreamSaver, self).__init__(None, *args, **kwargs)
     
-    def _init(self, filemame, prefix=None, select_fields=None, header=True, pandas_to_csv_kwargs=None):
+    def _init(self, filemame, fields_tranforms=None, values_tranforms=None, prefix=None, select_fields=None, header=True, pandas_to_csv_kwargs=None):
         self["filemame"] = filemame
         if prefix is None:
             self["prefix"] = ""
@@ -113,6 +122,9 @@ class CSVStreamSaver(_Stage):
         self["select_fields"] = select_fields
         self["line_number"] = 0
         self["header"] = header
+
+        self.fields_tranforms = fields_tranforms
+        self.values_tranforms = values_tranforms
 
         if pandas_to_csv_kwargs is None :
             self.pandas_to_csv_kwargs = {}
@@ -126,8 +138,13 @@ class CSVStreamSaver(_Stage):
 
     def dig(self, caller):
         import pandas as pd
-        store = filter_store(caller, self["select_fields"])
-        store = { "%s%s" % (self["prefix"], key) : [value] for key, value in store.items() }
+        tmp_store = filter_store(caller, self["select_fields"])
+        
+        store = {}
+        for key, value in tmp_store.items():
+            kkey = apply_list_transform(key, self.fields_tranforms)
+            vvalues = apply_list_transform(value, self.values_tranforms)
+            store["%s%s" % (self["prefix"], kkey)] = [vvalue]
         
         store["id"] = [self["line_number"]]
 
