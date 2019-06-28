@@ -1,2 +1,2 @@
 # Abyme
-Deep and Sophisticated Loops
+Deep and Sophisticated (Training) Loops
