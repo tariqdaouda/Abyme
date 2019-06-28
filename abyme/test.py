@@ -38,7 +38,6 @@ if __name__ == '__main__':
     def data_formater(batch_data):
         return ( {"horus_input": batch_data[0]}, batch_data[1] )
 
-    import villanitools.utils.models.hgn as HGN
     model = TheModelClass()
 
     criterion = torch.nn.modules.loss.MSELoss()
