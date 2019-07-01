@@ -1,7 +1,27 @@
 from . abstract import _Stage
+import torch
 
 class SaveModel(_Stage):
-    pass
+    def __init__(self, *args, **kwargs):
+        super(SaveModel, self).__init__(["before_save", "after_save"], *args, **kwargs)
+
+    def _init(self, model, filename, extension=".pyTorch"):
+        if extension[0] != "." :
+            ext = "."+extension
+        else :
+            ext = extension         
+        
+        if filename.find(ext) < 0 :
+            self["filename"] = filename + ext
+        else :
+            self["filename"] = filename
+
+        self["model"] = model
+
+    def dig(self, caller):
+        self.events["before_save"](self)
+        torch.save(self["model"], self["filename"])
+        self.events["after_save"](self)
 
 class SupervisedPass(_Stage):
     """docstring for SupervisedPass"""

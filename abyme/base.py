@@ -36,7 +36,7 @@ class PeriodicTrigger(_Stage):
     """docstring for PeriodicTrigger"""
 
     def __init__(self, *args, **kwargs):
-        super(PeriodicTrigger, self).__init__(["trigger"], *args, **kwargs)
+        super(PeriodicTrigger, self).__init__(["dig"], *args, **kwargs)
 
     def _init(self, period):
         self["counter"] = 0
@@ -44,8 +44,52 @@ class PeriodicTrigger(_Stage):
 
     def dig(self, caller):
         if self['counter'] % self["period"] == 0 : 
-            self.events["trigger"](caller)
+            self.events["dig"](caller)
         self['counter'] += 1
+
+class ThresholdTrigger(_Stage):
+    """"""
+    def __init__(self, *args, **kwargs):
+        super(PeriodicTrigger, self).__init__(["dig"], *args, **kwargs)
+
+    def _init(self, caller_field, threshold):
+        self["caller_field"] = caller_field
+        self["threshold"] = threshold
+
+    def dig(self, caller):
+        if caller[self["caller_field"]] > self["threshold"] : 
+            self.events["dig"](caller)
+
+class NewLowTrigger(_Stage):
+    """"""
+    def __init__(self, *args, **kwargs):
+        super(PeriodicTrigger, self).__init__(["dig"], *args, **kwargs)
+
+    def _init(self, caller_field, epsilon=1e-8):
+        self["caller_field"] = caller_field
+        self["epsilon"] = epsilon
+        self["min"] = None
+
+    def dig(self, caller):
+        if not self["min"] or self["min"] > caller[self["caller_field"]]:
+            self["min"] = caller[self["caller_field"]]
+
+        if caller[self["caller_field"]] < ( self["threshold"] - self["epsilon"]) : 
+            self.events["dig"](caller)
+        
+class NewHighTrigger(_Stage):
+    """"""
+    def _init(self, caller_field, epsilon=1e-8):
+        self["caller_field"] = caller_field
+        self["epsilon"] = epsilon
+        self["max"] = None
+
+    def dig(self, caller):
+        if not self["max"] or self["max"] < caller[self["caller_field"]]:
+            self["max"] = caller[self["caller_field"]]
+
+        if caller[self["caller_field"]] > ( self["threshold"] + self["epsilon"]) : 
+            self.events["dig"](caller)
 
 class PrintMessage(_Stage):
     """docstring for PrintMessage"""
@@ -150,18 +194,6 @@ class CSVStreamSaver(_Stage):
     def close(self):
         self.file.close()
 
-class ThresholdTrigger(_Stage):
-    pass
-
-class NewExtremumTrigger(_Stage):
-    pass
-
-class NewLowTrigger(_Stage):
-    pass
-
-class NewHighTrigger(_Stage):
-    pass
-
 class MovingStats(_Stage):
     """docstring for MovingStats"""
     def __init__(self, *args, **kwargs):
@@ -176,6 +208,8 @@ class MovingStats(_Stage):
         self["values"][self.counter % len(self["values"]) ] = caller[self["caller_field"]]
         self["average"] = numpy.mean(self["values"])
         self["std"] = numpy.std(self["values"])
+        self["min"] = numpy.min(self["values"])
+        self["max"] = numpy.max(self["values"])
         self.counter += 1
         self.events["end"](self)
 
@@ -192,6 +226,8 @@ class Stats(_Stage):
         self["values"].append( caller[self["caller_field"]] )
         self["average"] = numpy.mean(self["values"])
         self["std"] = numpy.std(self["values"])
+        self["min"] = numpy.min(self["values"])
+        self["max"] = numpy.max(self["values"])
         self.events["end"](self)
 
 class StoreAggregator(_Stage):
