@@ -1,6 +1,7 @@
 from . abstract import _Stage
 
 class SaveModel(_Stage):
+    pass
 
 class SupervisedPass(_Stage):
     """docstring for SupervisedPass"""

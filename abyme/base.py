@@ -1,30 +1,8 @@
 from . abstract import _Stage
+from . import utils
+from . import exceptions
+
 import numpy
-
-def filter_store(store, fields=None):
-    if fields is None :
-        return store
-    else :
-        return{ key: store[key] for key in fields }
-
-def flatten_dict(self, dct, separator=".", res = None):
-    if res is None :
-        res = {}
-
-    for k, v in dct.items():
-        if type(v) is dict :
-            filter_store[k] = 
-        else :
-            res[k] = v
-
-def apply_list_transform(value, transforms):
-    if transforms is None :
-        return value
-
-    val = value
-    for trans in transforms:
-        val = trans(val)
-    return val
 
 class Ground(_Stage):
     """docstring for Ground"""
@@ -32,8 +10,10 @@ class Ground(_Stage):
         super(Ground, self).__init__("dig")
     
     def dig(self, caller=None):
-        self.events["dig"](self)
-        # print("aaasss", self.events)
+        try:
+            self.events["dig"](self)        
+        except exceptions.EndOfEverything as e:
+            print("Ended because:", e)
 
 class IterrationLooper(_Stage):
     """docstring for IterrationLooper"""
@@ -81,18 +61,22 @@ class PrintMessage(_Stage):
 
 class PrettyPrintStore(_Stage):
     """docstring for PretyPrintStore"""
-    def _init(self, fields=None):
+    def _init(self, fields=None, prefix=""):
         if type(fields) is str :
             l_fields = [fields]
         else :
             l_fields = fields
 
         self.store["fields"] = l_fields
+        self.store["prefix"] = prefix
         
     def dig(self, caller):
         import json
         
-        store = filter_store(caller.store, self["fields"])
+        store = utils.filter_dict(caller.store, self["fields"])
+
+        store = utils.prefix_dict_keys(store, self["prefix"])
+
         try :
             print(
                 json.dumps(
@@ -149,12 +133,12 @@ class CSVStreamSaver(_Stage):
 
     def dig(self, caller):
         import pandas as pd
-        tmp_store = filter_store(caller, self["select_fields"])
+        tmp_store = utils.filter_dict(caller, self["select_fields"])
         
         store = {}
         for key, value in tmp_store.items():
-            kkey = apply_list_transform(key, self.fields_tranforms)
-            vvalue = apply_list_transform(value, self.values_tranforms)
+            kkey = utils.apply_list_transform(key, self.fields_tranforms)
+            vvalue = utils.apply_list_transform(value, self.values_tranforms)
             store["%s%s" % (self["prefix"], kkey)] = [vvalue]
         
         store["id"] = [self["line_number"]]
@@ -167,12 +151,16 @@ class CSVStreamSaver(_Stage):
         self.file.close()
 
 class ThresholdTrigger(_Stage):
+    pass
 
 class NewExtremumTrigger(_Stage):
+    pass
 
 class NewLowTrigger(_Stage):
+    pass
 
 class NewHighTrigger(_Stage):
+    pass
 
 class MovingStats(_Stage):
     """docstring for MovingStats"""
@@ -201,7 +189,7 @@ class Stats(_Stage):
         self["caller_field"] = caller_field
         
     def dig(self, caller):
-        self["values"] .append( caller[self["caller_field"]] )
+        self["values"].append( caller[self["caller_field"]] )
         self["average"] = numpy.mean(self["values"])
         self["std"] = numpy.std(self["values"])
         self.events["end"](self)
@@ -209,7 +197,7 @@ class Stats(_Stage):
 class StoreAggregator(_Stage):
     """docstring for StoreAggregator"""
     def __init__(self, *args, **kwargs):
-        super(StoreAggregator, self).__init__(["end"], *args, **kwargs)
+        super(StoreAggregator, self).__init__(["dig"], *args, **kwargs)
     
     def _init(self, select_fields, prefix):
         self["select_fields"] = select_fields
@@ -218,12 +206,23 @@ class StoreAggregator(_Stage):
 
     def aggregate(self, caller):
         self["aggregate"].update(
-            filter_store(caller, self["select_fields"])
+            utils.filter_dict(caller, self["select_fields"])
         )
 
     def dig(self, caller):
-        self["values".append( caller[self["caller_field"]] )
-        self["average"] = numpy.mean(self["values"])
-        self["std"] = numpy.std(self["values"])
-        self.events["end"](self)
+        self.events["dig"](self)
 
+class Break(_Stage):
+    """docstring for Break"""
+    def __init__(self, *args, **kwargs):
+        super(Break, self).__init__(["dig"], *args, **kwargs)
+    
+    def _init(self, reason=None, caller_breakpoint=None):
+        self["reason"] = reason
+        self["caller_breakpoint"] = caller_breakpoint
+
+    def dig(self, caller):
+        if self["caller_breakpoint"] is not None:
+            raise exceptions.Break(self["caller_breakpoint"], self["reason"])
+        else :
+            raise exceptions.EndOfEverything(self["reason"])

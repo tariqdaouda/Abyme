@@ -1,3 +1,5 @@
+from . import exceptions
+
 class EventHandler(object):
     """docstring for EventHandler"""
     def __init__(self):
@@ -70,8 +72,14 @@ class _Stage(object):
     def _dig(self, caller):
         if self._must_init:
             raise AttributeError("Object  %s has not been initialized at creation. Try calling setup function" % (self)) 
-        return self.dig(caller)
-
+        try:
+            return self.dig(caller)
+        except exceptions.Break as e :
+            if e.caller_breakpoint is self:
+                pass
+            else :
+                raise e
+        
     def dig(self, caller):
         raise NotImplemented("Must be implemented in child")
 
