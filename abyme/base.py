@@ -7,13 +7,15 @@ import numpy
 class Ground(abstract._Stage):
     """docstring for Ground"""
     def __init__(self, *args, **kwargs):
-        super(Ground, self).__init__("dig")
+        super(Ground, self).__init__("dig", "final")
     
     def dig(self, caller=None):
         try:
             self.events["dig"](self)        
         except exceptions.EndOfEverything as e:
             print("Ended because:", e)
+            self.events["final"](self)        
+            
 
 class IterrationLooper(abstract._Stage):
     """docstring for IterrationLooper"""
@@ -49,6 +51,24 @@ class DataLooper(abstract._Stage):
             self["data"] = data
             self.events["iteration_end"](self)
         self.events["end"](self)
+
+class If(abstract._Stage):
+    """docstring for PeriodicTrigger"""
+    def __init__(self, *args, **kwargs):
+        super(PeriodicTrigger, self).__init__(["if", "else"], *args, **kwargs)
+
+    def _init(self, condition):
+        self["condition"] = condition
+
+    def dig(self, caller):
+        try :
+            val = self["condition"]()
+        except TypeError :
+            val = self["condition"]
+
+        if val : 
+            self.events["if"](caller)
+
 
 class PeriodicTrigger(abstract._Stage):
     """docstring for PeriodicTrigger"""
@@ -143,8 +163,7 @@ class Print(abstract._Stage):
     def dig(self, caller):
         vals = list(self["message"])
         for i, val in enumerate(self["message"]) :
-            if isinstance(val, abstract.StageFreshArgument):
-                vals[i] = val()
+            vals[i] = abstract.freshest(val)
         print(*vals)
 
 class PrettyPrintStore(abstract._Stage):
@@ -163,7 +182,7 @@ class PrettyPrintStore(abstract._Stage):
         
     def dig(self, caller):
         store = utils.filter_dict(caller.store, self["fields"])
-        store = utils.prefix_dict_keys(store, self["prefix"])
+        store = utils.prefix_dict_keys(store, abstract.freshest( self["prefix"]) )
         
         res = [] 
         for k, v in store.items() :
@@ -207,7 +226,7 @@ class CSVStreamSaver(abstract._Stage):
         for key, value in tmp_store.items():
             kkey = utils.apply_list_transform(key, self.fields_tranforms)
             vvalue = utils.apply_list_transform(value, self.values_tranforms)
-            store["%s%s" % (self["prefix"], kkey)] = [vvalue]
+            store["%s%s" % ( abstract.freshest(self["prefix"]), kkey)] = [vvalue]
         
         store["id"] = [self["line_number"]]
 
@@ -286,3 +305,41 @@ class Break(abstract._Stage):
             raise exceptions.Break(self["caller_breakpoint"], self["reason"])
         else :
             raise exceptions.EndOfEverything(self["reason"])
+
+class CSV(abstract._Stage):
+    """docstring for CSV"""
+    def __init__(self, *args, **kwargs):
+        super(CSV, self).__init__(["dig"], *args, **kwargs)
+
+    def add_dict_to_line(self, dct):
+        for k, v in dct.items():
+            try :
+                pos = self["legend"][k]
+                self["current_line"][pos] = v
+            except KeyError:
+                self["legend"][k] = len(self["legend"])
+                pos = self["legend"][k]
+                self["current_line"][self["legend"][k]] = v
+
+    def add_caller_to_line(self, caller, select_fields):
+        self.add_dict_to_line(caller.store, select_fields)
+
+    def _init(self, legend, separator="\t", na_handling="copy", add_id=True):
+        self["lines"] = []
+        if add_id :
+            self["legend"] = { k: i+1 for i, k in enumerate(legend) }
+            self["legend"][0] = "id"
+        else :
+            self["legend"] = { k: i for i, k in enumerate(legend) }
+    
+        self["na_handling"] = na_handling
+        self["separator"] = separator
+
+    def open_line(self, caller) :
+        if self["na_handling"] == "na" or len(self["lines"] == 0):
+            self["current_line"] = ["na"] * len(self["legend"])
+        elif self["na_handling"] == "copy" :
+            self["current_line"] = list(self["lines"][-1])
+
+    def dig(self, caller):
+        self.events["dig"]()

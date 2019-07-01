@@ -1,7 +1,7 @@
-from . abstract import _Stage
+from . import abstract
 import torch
 
-class SaveModel(_Stage):
+class SaveModel(abstract._Stage):
     def __init__(self, *args, **kwargs):
         super(SaveModel, self).__init__(["before_save", "after_save"], *args, **kwargs)
 
@@ -16,24 +16,28 @@ class SaveModel(_Stage):
         else :
             self["filename"] = filename
 
-        if prefix:
-            self["filename"] = "%s%s" % (prefix, self["filename"])
+        self["prefix"] = prefix
 
         self["model"] = model
         self['overwrite'] = overwrite
 
     def dig(self, caller):
         self.events["before_save"](self)
-        if self["overwrite"]:
-            torch.save(self["model"], self["filename"])
+
+        if self["prefix"]:
+            filename = "%s%s" % (abstract.freshest(self["prefix"]), self["filename"])
         else :
+            filename = self["filename"]
+
+        if not self["overwrite"]:
             import time
             fix = time.ctime().replace(" ", "-") + "_"
-            torch.save(self["model"], fix + self["filename"] )
+            filename = fix + self["filename"]
 
+        torch.save(self["model"], filename)
         self.events["after_save"](self)
 
-class SupervisedPass(_Stage):
+class SupervisedPass(abstract._Stage):
     """docstring for SupervisedPass"""
     def __init__(self, *args, **kwargs):
         super(SupervisedPass, self).__init__(["start", "end"], *args, **kwargs)

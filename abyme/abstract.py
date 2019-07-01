@@ -1,5 +1,10 @@
 from . import exceptions
 
+def freshest(value):
+    if isinstance(value, StageFreshArgument) :
+        return value()
+    return value
+
 class EventHandler(object):
     """docstring for EventHandler"""
     def __init__(self):
@@ -47,6 +52,7 @@ class _Stage(object):
         self.store = {}
         self.events = {}
         self._must_init = True
+        self.focus = None
 
         if event_names:
             if type(event_names) is str :
@@ -71,6 +77,11 @@ class _Stage(object):
             self._init(**key_word_args)
             self._must_init = False
         
+    def focus(self, caller):
+        """change the focus to point to a different caller than the one calling"""
+        self.focus = caller
+        return self
+
     def setup(self, *args, **kwargs):
         self._init(*args, **kwargs)
         self._must_init = False
@@ -83,7 +94,11 @@ class _Stage(object):
         if self._must_init:
             raise AttributeError("Object  %s has not been initialized at creation. Try calling setup function" % (self)) 
         try:
-            return self.dig(caller)
+            if self.focus :
+                final_caller = self.focus
+            else :
+                final_caller = caller
+            return self.dig(final_caller)
         except exceptions.Break as e :
             if e.caller_breakpoint is self:
                 pass
@@ -93,7 +108,7 @@ class _Stage(object):
     def dig(self, caller):
         raise NotImplemented("Must be implemented in child")
 
-    def more(self, event_name, *stages):
+    def at(self, event_name, *stages):
         for stage in stages :
             self.events[event_name].add(stage)
         return self
@@ -116,6 +131,7 @@ class _Stage(object):
 
     def __getitem__(self, k):
         try :
+            # return self.get(k)
             return self.store[k]
         except KeyError as e :
             raise KeyError("%s has not attribute: %s. Has: %s" % (self, k, self.keys()))
