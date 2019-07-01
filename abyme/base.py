@@ -264,7 +264,14 @@ class Stats(abstract._Stage):
     def _init(self, caller_field):
         self["values"] = []
         self["caller_field"] = caller_field
-        
+    
+    def reset(self, caller) :
+        self["values"] = []
+        self["average"] = None
+        self["std"] = None
+        self["min"] = None
+        self["max"] = None
+
     def dig(self, caller):
         self["values"].append( caller[self["caller_field"]] )
         self["average"] = numpy.mean(self["values"])
@@ -306,25 +313,29 @@ class Break(abstract._Stage):
         else :
             raise exceptions.EndOfEverything(self["reason"])
 
-class CSV(abstract._Stage):
-    """docstring for CSV"""
+class CSVWriter(abstract._Stage):
+    """docstring for CSVWriter"""
     def __init__(self, *args, **kwargs):
-        super(CSV, self).__init__(["dig"], *args, **kwargs)
+        super(CSVWriter, self).__init__(["dig"], *args, **kwargs)
 
     def add_dict_to_line(self, dct):
-        for k, v in dct.items():
-            try :
-                pos = self["legend"][k]
-                self["current_line"][pos] = v
-            except KeyError:
-                self["legend"][k] = len(self["legend"])
-                pos = self["legend"][k]
-                self["current_line"][self["legend"][k]] = v
+        def _do(caller) :
+            self.resave = False
+            for k, v in dct.items():
+                try :
+                    pos = self["legend"][k]
+                    self["current_line"][pos] = v
+                except KeyError:
+                    self["legend"][k] = len(self["legend"])
+                    pos = self["legend"][k]
+                    self["current_line"][self["legend"][k]] = v
+                    self.resave = True
+        return _do
 
     def add_caller_to_line(self, caller, select_fields):
-        self.add_dict_to_line(caller.store, select_fields)
+        return self.add_dict_to_line(caller.store, select_fields)
 
-    def _init(self, legend, separator="\t", na_handling="copy", add_id=True):
+    def _init(self, filename, legend, separator="\t", line_separator="\n", na_handling="copy", add_id=True):
         self["lines"] = []
         if add_id :
             self["legend"] = { k: i+1 for i, k in enumerate(legend) }
@@ -334,12 +345,29 @@ class CSV(abstract._Stage):
     
         self["na_handling"] = na_handling
         self["separator"] = separator
+        self["line_separator"] = line_separator
+        self.file = open(filename, "w")
+        self.resave = True
 
     def open_line(self, caller) :
-        if self["na_handling"] == "na" or len(self["lines"] == 0):
-            self["current_line"] = ["na"] * len(self["legend"])
-        elif self["na_handling"] == "copy" :
-            self["current_line"] = list(self["lines"][-1])
+        def _do(caller) :
+            if self["na_handling"] == "na" or len(self["lines"] == 0):
+                self["current_line"] = ["na"] * len(self["legend"])
+            elif self["na_handling"] == "copy" :
+                self["current_line"] = list(self["lines"][-1])
+        return _do
+
+    def commit_line(self, caller) :
+        self["lines"].append(self["current_line"])
+
+    def write(self, caller):
+        def _do(caller):
+            res = [ self["separator"].join(line) for line in self["lines"] ]
+            res = self["line_separator"].join(res)           
+            if self.resave:
+                self.file.close()
+                self.file = open(self["filename"], "w")
+            self.file.write(res)
 
     def dig(self, caller):
         self.events["dig"]()
