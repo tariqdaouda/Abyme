@@ -19,6 +19,7 @@ class EventHandler(object):
             if isinstance(evt, _Stage) :
                 evt._dig(caller)
             else:
+                print(evt, caller)
                 evt(caller)
 
     def __call__(self, *args, **kwargs):
@@ -52,7 +53,7 @@ class _Stage(object):
         self.store = {}
         self.events = {}
         self._must_init = True
-        self.focus = None
+        self.focus_caller = None
 
         if event_names:
             if type(event_names) is str :
@@ -74,12 +75,15 @@ class _Stage(object):
         
         key_word_args.update(kwargs)
         if len(key_word_args) > 0 :
-            self._init(**key_word_args)
-            self._must_init = False
+            try:
+                self._init(**key_word_args)
+                self._must_init = False
+            except :
+                pass
         
     def focus(self, caller):
         """change the focus to point to a different caller than the one calling"""
-        self.focus = caller
+        self.focus_caller = caller
         return self
 
     def setup(self, *args, **kwargs):
@@ -94,8 +98,8 @@ class _Stage(object):
         if self._must_init:
             raise AttributeError("Object  %s has not been initialized at creation. Try calling setup function" % (self)) 
         try:
-            if self.focus :
-                final_caller = self.focus
+            if self.focus_caller is not None :
+                final_caller = self.focus_caller
             else :
                 final_caller = caller
             return self.dig(final_caller)
@@ -127,7 +131,7 @@ class _Stage(object):
         return self.store.items()
         
     def __call__(self, event_name, *stages):
-        return self.more(event_name, *stages)
+        return self.at(event_name, *stages)
 
     def __getitem__(self, k):
         try :

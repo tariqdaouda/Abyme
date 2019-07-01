@@ -55,7 +55,7 @@ class DataLooper(abstract._Stage):
 class If(abstract._Stage):
     """docstring for PeriodicTrigger"""
     def __init__(self, *args, **kwargs):
-        super(PeriodicTrigger, self).__init__(["if", "else"], *args, **kwargs)
+        super(If, self).__init__(["dig"], *args, **kwargs)
 
     def _init(self, condition):
         self["condition"] = condition
@@ -67,7 +67,7 @@ class If(abstract._Stage):
             val = self["condition"]
 
         if val : 
-            self.events["if"](caller)
+            self.events["dig"](caller)
 
 
 class PeriodicTrigger(abstract._Stage):
@@ -240,7 +240,7 @@ class CSVStreamSaver(abstract._Stage):
 class MovingStats(abstract._Stage):
     """docstring for MovingStats"""
     def __init__(self, *args, **kwargs):
-        super(MovingStats, self).__init__(["end"], *args, **kwargs)
+        super(MovingStats, self).__init__(["dig"], *args, **kwargs)
     
     def _init(self, caller_field, window_size=100):
         self["values"] = numpy.zeros(window_size)
@@ -254,23 +254,25 @@ class MovingStats(abstract._Stage):
         self["min"] = numpy.min(self["values"])
         self["max"] = numpy.max(self["values"])
         self["counter"] += 1
-        self.events["end"](self)
+        self.events["dig"](self)
 
 class Stats(abstract._Stage):
     """docstring for Stats"""
     def __init__(self, *args, **kwargs):
-        super(Stats, self).__init__(["end"], *args, **kwargs)
+        super(Stats, self).__init__(["dig"], *args, **kwargs)
     
     def _init(self, caller_field):
         self["values"] = []
         self["caller_field"] = caller_field
     
     def reset(self, caller) :
-        self["values"] = []
-        self["average"] = None
-        self["std"] = None
-        self["min"] = None
-        self["max"] = None
+        def _do(caller) :
+            self["values"] = []
+            self["average"] = None
+            self["std"] = None
+            self["min"] = None
+            self["max"] = None
+        return _do
 
     def dig(self, caller):
         self["values"].append( caller[self["caller_field"]] )
@@ -278,7 +280,7 @@ class Stats(abstract._Stage):
         self["std"] = numpy.std(self["values"])
         self["min"] = numpy.min(self["values"])
         self["max"] = numpy.max(self["values"])
-        self.events["end"](self)
+        self.events["dig"](self)
 
 class StoreAggregator(abstract._Stage):
     """docstring for StoreAggregator"""
@@ -318,8 +320,9 @@ class CSVWriter(abstract._Stage):
     def __init__(self, *args, **kwargs):
         super(CSVWriter, self).__init__(["dig"], *args, **kwargs)
 
-    def add_dict_to_line(self, dct):
+    def add_dict_to_line(self, adct, prefix=None):
         def _do(caller) :
+            dct = utils.prefix_dict_keys(adct, prefix)
             self.resave = False
             for k, v in dct.items():
                 try :
@@ -332,17 +335,19 @@ class CSVWriter(abstract._Stage):
                     self.resave = True
         return _do
 
-    def add_caller_to_line(self, caller, select_fields):
-        return self.add_dict_to_line(caller.store, select_fields)
+    def add_caller_to_line(self, fields, prefix):
+        return self.add_dict_to_line( utils.filter_dict(caller.store, fields), prefix)
 
-    def _init(self, filename, legend, separator="\t", line_separator="\n", na_handling="copy", add_id=True):
+    def _init(self, filename, legend=None, separator="\t", line_separator="\n", na_handling="copy", add_id=True):
         self["lines"] = []
+        self["legend"] = {}
         if add_id :
-            self["legend"] = { k: i+1 for i, k in enumerate(legend) }
             self["legend"][0] = "id"
-        else :
-            self["legend"] = { k: i for i, k in enumerate(legend) }
-    
+        
+        if legend is not None :
+            for k in enumerate(legend):
+                self["legend"][k] = len(self["legend"])
+        
         self["na_handling"] = na_handling
         self["separator"] = separator
         self["line_separator"] = line_separator
@@ -360,7 +365,7 @@ class CSVWriter(abstract._Stage):
     def commit_line(self, caller) :
         self["lines"].append(self["current_line"])
 
-    def write(self, caller):
+    def save(self, caller):
         def _do(caller):
             res = [ self["separator"].join(line) for line in self["lines"] ]
             res = self["line_separator"].join(res)           
