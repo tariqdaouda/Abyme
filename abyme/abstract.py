@@ -28,6 +28,16 @@ class EventHandler(object):
     def __repr__(self):
         return "<%s (#%s), events: %s>" % (self.__class__.__name__, len(self.events), [ k for k in self.events ])
 
+class StageFreshArgument(object):
+    """docstring for StageFreshArgument"""
+    def __init__(self, stage, key):
+        super(StageFreshArgument, self).__init__()
+        self.stage = stage
+        self.key = key
+    
+    def __call__(self):
+        return self.stage[self.key]
+
 class _Stage(object):
     """docstring for _Stage"""
     def __init__(self, event_names=None, *args, **kwargs):
@@ -79,7 +89,7 @@ class _Stage(object):
                 pass
             else :
                 raise e
-        
+
     def dig(self, caller):
         raise NotImplemented("Must be implemented in child")
 
@@ -87,6 +97,10 @@ class _Stage(object):
         for stage in stages :
             self.events[event_name].add(stage)
         return self
+
+    def get(self, key):
+        """return as callable that will always return the current value of argment"""
+        return StageFreshArgument(self, key)
 
     def keys(self):
         return self.store.keys()
@@ -101,7 +115,10 @@ class _Stage(object):
         return self.more(event_name, *stages)
 
     def __getitem__(self, k):
-        return self.store[k]
+        try :
+            return self.store[k]
+        except KeyError as e :
+            raise KeyError("%s has not attribute: %s. Has: %s" % (self, k, self.keys()))
 
     def __setitem__(self, k, v):
         self.store[k] = v

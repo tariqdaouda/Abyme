@@ -1,10 +1,10 @@
-from . abstract import _Stage
+from . import abstract
 from . import utils
 from . import exceptions
 
 import numpy
 
-class Ground(_Stage):
+class Ground(abstract._Stage):
     """docstring for Ground"""
     def __init__(self, *args, **kwargs):
         super(Ground, self).__init__("dig")
@@ -15,42 +15,60 @@ class Ground(_Stage):
         except exceptions.EndOfEverything as e:
             print("Ended because:", e)
 
-class IterrationLooper(_Stage):
+class IterrationLooper(abstract._Stage):
     """docstring for IterrationLooper"""
     def __init__(self, *args, **kwargs):
         super(IterrationLooper, self).__init__(["start", "iteration_start", "iteration_end", "end"], *args, **kwargs)
     
     def _init(self, nb_iterations):
         self["nb_iterations"] = nb_iterations
-        self["current_iteration"] = 0
+        self["counter"] = 0
 
     def dig(self, caller):
         self.events["start"](self)
         for it in range(self["nb_iterations"]):
             self.events["iteration_start"](self)
-            self["current_iteration"] += 1
+            self["counter"] += 1
             self.events["iteration_end"](self)
         self.events["end"](self)
 
-class PeriodicTrigger(_Stage):
-    """docstring for PeriodicTrigger"""
+class DataLooper(abstract._Stage):
+    """docstring for DataLooper"""
+    def __init__(self, *args, **kwargs):
+        super(DataLooper, self).__init__(["start", "iteration_start", "iteration_end", "end"], *args, **kwargs)
+    
+    def _init(self, data_loader) :
+        self["data_loader"] = data_loader
+        self["counter"] = None
+    
+    def dig(self, caller):
+        self.events["start"](self)
+        for i, data in enumerate(self["data_loader"]):
+            self["counter"] = i
+            self.events["iteration_start"](self)
+            self["data"] = data
+            self.events["iteration_end"](self)
+        self.events["end"](self)
 
+class PeriodicTrigger(abstract._Stage):
+    """docstring for PeriodicTrigger"""
     def __init__(self, *args, **kwargs):
         super(PeriodicTrigger, self).__init__(["dig"], *args, **kwargs)
 
-    def _init(self, period):
+    def _init(self, period, wait_periods=0):
         self["counter"] = 0
+        self["wait_periods"] = wait_periods
         self["period"] = period
 
     def dig(self, caller):
-        if self['counter'] % self["period"] == 0 : 
+        if self["counter"] >= (self["period"] * self["wait_periods"]) and self['counter'] % self["period"] == 0 : 
             self.events["dig"](caller)
         self['counter'] += 1
 
-class ThresholdTrigger(_Stage):
+class ThresholdTrigger(abstract._Stage):
     """"""
     def __init__(self, *args, **kwargs):
-        super(PeriodicTrigger, self).__init__(["dig"], *args, **kwargs)
+        super(ThresholdTrigger, self).__init__(["dig"], *args, **kwargs)
 
     def _init(self, caller_field, threshold):
         self["caller_field"] = caller_field
@@ -60,10 +78,10 @@ class ThresholdTrigger(_Stage):
         if caller[self["caller_field"]] > self["threshold"] : 
             self.events["dig"](caller)
 
-class NewLowTrigger(_Stage):
+class NewLowTrigger(abstract._Stage):
     """"""
     def __init__(self, *args, **kwargs):
-        super(PeriodicTrigger, self).__init__(["dig"], *args, **kwargs)
+        super(NewLowTrigger, self).__init__(["dig"], *args, **kwargs)
 
     def _init(self, caller_field, epsilon=1e-8):
         self["caller_field"] = caller_field
@@ -73,12 +91,13 @@ class NewLowTrigger(_Stage):
     def dig(self, caller):
         if not self["min"] or self["min"] > caller[self["caller_field"]]:
             self["min"] = caller[self["caller_field"]]
-
-        if caller[self["caller_field"]] < ( self["threshold"] - self["epsilon"]) : 
             self.events["dig"](caller)
-        
-class NewHighTrigger(_Stage):
+
+class NewHighTrigger(abstract._Stage):
     """"""
+    def __init__(self, *args, **kwargs):
+        super(NewHighTrigger, self).__init__(["dig"], *args, **kwargs)
+
     def _init(self, caller_field, epsilon=1e-8):
         self["caller_field"] = caller_field
         self["epsilon"] = epsilon
@@ -87,24 +106,52 @@ class NewHighTrigger(_Stage):
     def dig(self, caller):
         if not self["max"] or self["max"] < caller[self["caller_field"]]:
             self["max"] = caller[self["caller_field"]]
-
-        if caller[self["caller_field"]] > ( self["threshold"] + self["epsilon"]) : 
             self.events["dig"](caller)
 
-class PrintMessage(_Stage):
-    """docstring for PrintMessage"""
-
+class RangeTrigger(abstract._Stage):
+    """
+        Low is inclusive, high exclusive
+    """
     def __init__(self, *args, **kwargs):
-        super(PrintMessage, self).__init__(None, *args, **kwargs)
+        super(RangeTrigger, self).__init__(["dig"], *args, **kwargs)
 
-    def _init(self, message):
-        self["message"] = message
+    def _init(self, caller_field, low, high=None):
+        self["caller_field"] = caller_field
+        self["low"] = low
+        self["high"] = high
 
     def dig(self, caller):
-        print(self["message"])
+        if (
+            (caller[self["caller_field"]] >= self["low"]) and self["high"] is None
+            or (caller[self["caller_field"]] > self["low"] ) and ( caller[self["caller_field"]] < self["high"] )
+        ) :
+            self.events["dig"](caller)
 
-class PrettyPrintStore(_Stage):
-    """docstring for PretyPrintStore"""
+class Print(abstract._Stage):
+    """docstring for Print"""
+
+    def __init__(self, *args, **kwargs):
+        super(Print, self).__init__(None, *args, **kwargs)
+
+    def _init(self, to_print):
+        try:
+            to_print.append
+            self["message"] = to_print
+        except :
+            self["message"] = [to_print]
+
+    def dig(self, caller):
+        vals = list(self["message"])
+        for i, val in enumerate(self["message"]) :
+            if isinstance(val, abstract.StageFreshArgument):
+                vals[i] = val()
+        print(*vals)
+
+class PrettyPrintStore(abstract._Stage):
+    """docstring for PrettyPrintStore"""
+    def __init__(self, *args, **kwargs):
+        super(PrettyPrintStore, self).__init__(None, *args, **kwargs)
+
     def _init(self, fields=None, prefix=""):
         if type(fields) is str :
             l_fields = [fields]
@@ -115,39 +162,16 @@ class PrettyPrintStore(_Stage):
         self.store["prefix"] = prefix
         
     def dig(self, caller):
-        import json
-        
         store = utils.filter_dict(caller.store, self["fields"])
-
         store = utils.prefix_dict_keys(store, self["prefix"])
+        
+        res = [] 
+        for k, v in store.items() :
+            res.append("%s: %s" % (k, v))
+        
+        print("{\n", "\n  ".join(res), "\n}")
 
-        try :
-            print(
-                json.dumps(
-                    store,
-                    indent=4, sort_keys=True
-                )
-            )
-        except TypeError:
-            print(caller.store)
-
-class DataLooper(_Stage):
-    """docstring for DataLooper"""
-    def __init__(self, *args, **kwargs):
-        super(DataLooper, self).__init__(["start", "iteration_start", "iteration_end", "end"], *args, **kwargs)
-    
-    def _init(self, data_loader) :
-        self["data_loader"] = data_loader
-
-    def dig(self, caller):
-        self.events["start"](self)
-        for data in self["data_loader"]:
-            self.events["iteration_start"](self)
-            self["data"] = data
-            self.events["iteration_end"](self)
-        self.events["end"](self)
-
-class CSVStreamSaver(_Stage):
+class CSVStreamSaver(abstract._Stage):
     """docstring for CSVStreamSaver"""
     def __init__(self, *args, **kwargs):
         super(CSVStreamSaver, self).__init__(None, *args, **kwargs)
@@ -194,7 +218,7 @@ class CSVStreamSaver(_Stage):
     def close(self):
         self.file.close()
 
-class MovingStats(_Stage):
+class MovingStats(abstract._Stage):
     """docstring for MovingStats"""
     def __init__(self, *args, **kwargs):
         super(MovingStats, self).__init__(["end"], *args, **kwargs)
@@ -202,18 +226,18 @@ class MovingStats(_Stage):
     def _init(self, caller_field, window_size=100):
         self["values"] = numpy.zeros(window_size)
         self["caller_field"] = caller_field
-        self.counter = 0
+        self["counter"] = 0
 
     def dig(self, caller):
-        self["values"][self.counter % len(self["values"]) ] = caller[self["caller_field"]]
+        self["values"][self["counter"] % len(self["values"]) ] = caller[self["caller_field"]]
         self["average"] = numpy.mean(self["values"])
         self["std"] = numpy.std(self["values"])
         self["min"] = numpy.min(self["values"])
         self["max"] = numpy.max(self["values"])
-        self.counter += 1
+        self["counter"] += 1
         self.events["end"](self)
 
-class Stats(_Stage):
+class Stats(abstract._Stage):
     """docstring for Stats"""
     def __init__(self, *args, **kwargs):
         super(Stats, self).__init__(["end"], *args, **kwargs)
@@ -230,7 +254,7 @@ class Stats(_Stage):
         self["max"] = numpy.max(self["values"])
         self.events["end"](self)
 
-class StoreAggregator(_Stage):
+class StoreAggregator(abstract._Stage):
     """docstring for StoreAggregator"""
     def __init__(self, *args, **kwargs):
         super(StoreAggregator, self).__init__(["dig"], *args, **kwargs)
@@ -248,7 +272,7 @@ class StoreAggregator(_Stage):
     def dig(self, caller):
         self.events["dig"](self)
 
-class Break(_Stage):
+class Break(abstract._Stage):
     """docstring for Break"""
     def __init__(self, *args, **kwargs):
         super(Break, self).__init__(["dig"], *args, **kwargs)
