@@ -57,13 +57,13 @@ With Abyme training loops are written as fractals that go deeper and deeper, all
                     train_stats,
                 )
             ).at("end",
-                *handle_epoch_end("train", epoch_looper, train_data_looper, csv_result, save_model=True, stats_caller_focus=train_stats),
                 test_data_looper("iteration_end",
                     test_pass("end",
                         test_stats,
-                        *handle_epoch_end("test", epoch_looper, test_data_looper, csv_result, save_model=True, stats_caller_focus=test_stats)
                     ),
                 ),
+                *handle_epoch_end("train", epoch_looper, train_data_looper, csv_result, save_model=True, stats_caller_focus=train_stats),
+                *handle_epoch_end("test", epoch_looper, test_data_looper, csv_result, save_model=True, stats_caller_focus=test_stats)
             )
         ).at("iteration_start", 
             csv_result.commit_line(),
