@@ -19,7 +19,6 @@ class EventHandler(object):
             if isinstance(evt, _Stage) :
                 evt._dig(caller)
             else:
-                print(evt, caller)
                 evt(caller)
 
     def __call__(self, *args, **kwargs):
@@ -78,8 +77,8 @@ class _Stage(object):
             try:
                 self._init(**key_word_args)
                 self._must_init = False
-            except :
-                pass
+            except TypeError:
+                self._must_init = True
         
     def focus(self, caller):
         """change the focus to point to a different caller than the one calling"""
@@ -114,7 +113,11 @@ class _Stage(object):
 
     def at(self, event_name, *stages):
         for stage in stages :
-            self.events[event_name].add(stage)
+            try :
+                self.events[event_name].add(stage)
+            except KeyError as e :
+                raise KeyError("%s has no event: %s. Has: %s" % (self, event_name, self.events.keys()))
+        
         return self
 
     def get(self, key):
@@ -138,7 +141,7 @@ class _Stage(object):
             # return self.get(k)
             return self.store[k]
         except KeyError as e :
-            raise KeyError("%s has not attribute: %s. Has: %s" % (self, k, self.keys()))
+            raise KeyError("%s has no attribute: %s. Has: %s" % (self, k, self.keys()))
 
     def __setitem__(self, k, v):
         self.store[k] = v
