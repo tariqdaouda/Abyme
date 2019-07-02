@@ -392,6 +392,7 @@ class CSVWriter(abstract._Stage):
         return _do
 
     def save(self):
+        import os
         def _do(caller):
             self.last_line = self["lines"][-1]
             for line_id in range(self.formated_id+1, len(self["lines"])) :
@@ -401,6 +402,7 @@ class CSVWriter(abstract._Stage):
             if self.resave:
                 res = self["separator"].join(self["legend"].keys()) + self["line_separator"] + self["line_separator"].join(self["lines"])           
                 self.file.close()
+                os.rename(self["filename"], self["filename"]+".bck")
                 self.file = open(self["filename"], "w")
             else :
                 res = self["line_separator"] + self["line_separator"].join(self["lines"])           
