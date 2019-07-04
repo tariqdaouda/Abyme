@@ -5,6 +5,11 @@ def freshest(value):
         return value()
     return value
 
+def call_if_callable(value):
+    if hasattr(value, "__call__") or isinstance(value, types.FunctionType) :
+        return value()
+    return val
+
 class EventHandler(object):
     """docstring for EventHandler"""
     def __init__(self):

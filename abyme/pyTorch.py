@@ -5,7 +5,7 @@ class SaveModel(abstract._Stage):
     def __init__(self, *args, **kwargs):
         super(SaveModel, self).__init__(["before_save", "after_save"], *args, **kwargs)
 
-    def _init(self, model, filename, extension=".pyTorch", overwrite=False, prefix=None):
+    def _init(self, model, filename, extension=".pyTorch", overwrite=False, prefix_callable=None):
         if extension[0] != "." :
             ext = "."+extension
         else :
@@ -16,7 +16,7 @@ class SaveModel(abstract._Stage):
         else :
             self["filename"] = filename
 
-        self["prefix"] = prefix
+        self["prefix"] = prefix_callable
 
         self["model"] = model
         self['overwrite'] = overwrite
@@ -24,15 +24,13 @@ class SaveModel(abstract._Stage):
     def dig(self, caller):
         self.events["before_save"](self)
 
-        if self["prefix"]:
-            filename = "%s%s" % (abstract.freshest(self["prefix"]), self["filename"])
-        else :
-            filename = self["filename"]
-
         if not self["overwrite"]:
             import time
             fix = time.ctime().replace(" ", "-") + "_"
             filename = fix + self["filename"]
+
+        if self["prefix"]:
+            filename = "%s%s" % (abstract.call_if_callable(self["prefix"]), filename)
 
         torch.save(self["model"], filename)
         self.events["after_save"](self)

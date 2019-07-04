@@ -61,11 +61,8 @@ class If(abstract._Stage):
         self["condition"] = condition
 
     def dig(self, caller):
-        try :
-            val = self["condition"]()
-        except TypeError :
-            val = self["condition"]
-
+        import types
+        val = abstract.call_if_callable(self["condition"])
         if val : 
             self.events["dig"](caller)
 
@@ -320,19 +317,50 @@ class CSVWriter(abstract._Stage):
     def __init__(self, *args, **kwargs):
         super(CSVWriter, self).__init__(["dig"], *args, **kwargs)
 
-    def populate_current_line(self, dct) :
-        self.resave = False
+    def _init(self, filename, fieldnames, na_handling="copy", add_id=True, csv_writer_kwargs = {}):
+        import csv
+
+        if not csv_writer_kwargs :
+            csv_writer_kwargs = {}
+
+        self["filename"] = filename
+        self["na_handling"] = na_handling
+        self["fieldnames"] = fieldnames
+        self["add_id"] = add_id
+        if self["add_id"] :
+            self["fieldnames"].insert(0, "id")
+        self["counter"] = 0
+
+        self.last_line = None
+        self.file = open(self["filename"], "w", newline="")
+        self.writer = csv.DictWriter(self.file, self["fieldnames"], **csv_writer_kwargs)
+        self.writer.writeheader()
+        self._newline()
+
+    def _newline(self) :
+        if self["na_handling"] == "copy" and self.last_line is not None :
+            self["current_line"] = dict(self.last_line)
+        else :
+            self["current_line"] = { k: "na" for k in self["fieldnames"]}
+
         if self["add_id"]:
-            self["current_line"][self["legend"]["id"]] = str(len(self["lines"]))
-    
-        for k, v in dct.items():
-            try :
-                pos = self["legend"][k]
-                self["current_line"][pos] = str(v)
-            except KeyError:
-                self["legend"][k] = len(self["legend"])
-                self["current_line"].append(str(v))
-                self.resave = True
+            self["current_line"]["id"] = self["counter"]
+
+    def open_line(self) :
+        def _do(caller) :
+            self._newline()
+        return _do
+
+    def commit_line(self) :
+        def _do(caller):
+            self.writer.writerow(self["current_line"])
+            self.last_line = self["current_line"]        
+            self["counter"] += 1
+        return _do
+
+    def populate_current_line(self, dct) :
+        for k in dct.keys():
+            self["current_line"][k] = dct[k]
 
     def add_dict_to_line(self, adct, prefix=None):
         def _do(caller) :
@@ -352,62 +380,75 @@ class CSVWriter(abstract._Stage):
             self.populate_current_line(dct)
         return _do
 
-    def _init(self, filename, legend=None, separator="\t", line_separator="\n", na_handling="copy", add_id=True):
-        from collections import OrderedDict
-        
-        self["lines"] = []
-        self["legend"] = OrderedDict()
+    def dig(self, caller):
+        self.events["dig"]()
+
+class JSONWriter(abstract._Stage):
+    """docstring for JSONWriter"""
+    def __init__(self, *args, **kwargs):
+        super(JSONWriter, self).__init__(["dig"], *args, **kwargs)
+
+    def _init(self, filename, fieldnames, na_handling="copy", add_id=True, csv_writer_kwargs = {}):
+        import csv
+
+        if not csv_writer_kwargs :
+            csv_writer_kwargs = {}
+
+        self["filename"] = filename
+        self["na_handling"] = na_handling
+        self["fieldnames"] = fieldnames
         self["add_id"] = add_id
         if self["add_id"] :
-            self["legend"]["id"] = 0
-        
-        if legend is not None :
-            for k in enumerate(legend):
-                self["legend"][k] = len(self["legend"])
-        
-        self["na_handling"] = na_handling
-        self["separator"] = separator
-        self["line_separator"] = line_separator
-        self["filename"] = filename
-        self["current_line"] = None
-        self.file = open(self["filename"], "w")
-        self.resave = True
-        self.formated_id = -1
+            self["fieldnames"].insert(0, "id")
+        self["counter"] = 0
 
-    def _new_line(self) :
-        if self["na_handling"] == "copy" and len(self["lines"]) > 0 :
-            self["current_line"] = list(self.last_line)
+        self.last_line = None
+        self.file = open(self["filename"], "w", newline="")
+        self.writer = csv.DictWriter(self.file, self["fieldnames"], **csv_writer_kwargs)
+        self.writer.writeheader()
+        self._newline()
+
+    def _newline(self) :
+        if self["na_handling"] == "copy" and self.last_line is not None :
+            self["current_line"] = dict(self.last_line)
         else :
-            self["current_line"] = ["na"] * len(self["legend"])
+            self["current_line"] = { k: "na" for k in self["fieldnames"]}
+
+        if self["add_id"]:
+            self["current_line"]["id"] = self["counter"]
 
     def open_line(self) :
         def _do(caller) :
-            self._new_line()
+            self._newline()
         return _do
 
     def commit_line(self) :
         def _do(caller):
-            self.last_line = self["current_line"]
-            self["lines"].append(self["current_line"])
+            self.writer.writerow(self["current_line"])
+            self.last_line = self["current_line"]        
+            self["counter"] += 1
         return _do
 
-    def save(self):
-        import os
-        def _do(caller):
-            self.last_line = self["lines"][-1]
-            for line_id in range(self.formated_id+1, len(self["lines"])) :
-                self["lines"][line_id] = self["separator"].join(self["lines"][line_id])
-                self.formated_id += 1
+    def populate_current_line(self, dct) :
+        for k in dct.keys():
+            self["current_line"][k] = dct[k]
 
-            if self.resave:
-                res = self["separator"].join(self["legend"].keys()) + self["line_separator"] + self["line_separator"].join(self["lines"])           
-                self.file.close()
-                os.rename(self["filename"], self["filename"]+".bck")
-                self.file = open(self["filename"], "w")
+    def add_dict_to_line(self, adct, prefix=None):
+        def _do(caller) :
+            dct = utils.prefix_dict_keys(adct, prefix)
+            self.populate_current_line(dct)
+        return _do
+
+    def add_caller_to_line(self, fields, prefix, focus_caller=None):
+        default_caller = focus_caller 
+        def _do( caller ) :
+            if default_caller is not None :
+                cal = default_caller
             else :
-                res = self["line_separator"] + self["line_separator"].join(self["lines"])           
-
-            self.file.write(res)
+                cal = caller
+            dct = utils.filter_dict(cal.store, fields)
+            dct = utils.prefix_dict_keys(dct, prefix)
+            self.populate_current_line(dct)
         return _do
 
     def dig(self, caller):
