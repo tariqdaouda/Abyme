@@ -26,12 +26,14 @@ class IterrationLooper(abstract._Stage):
         self["nb_iterations"] = nb_iterations
         self["counter"] = 0
 
-    def dig(self, caller):
+    def dig(self, caller):    
         self.events["start"](self)
-        for it in range(self["nb_iterations"]):
+        max_it = self["nb_iterations"]
+        while max_it != 0 :
             self.events["iteration_start"](self)
             self["counter"] += 1
             self.events["iteration_end"](self)
+            max_it -= 1
         self.events["end"](self)
 
 class DataLooper(abstract._Stage):
