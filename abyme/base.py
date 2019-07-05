@@ -265,14 +265,12 @@ class Stats(abstract._Stage):
         self["caller_field"] = caller_field
     
     def reset(self, caller) :
-        def _do(caller) :
-            self["values"] = []
-            self["average"] = None
-            self["std"] = None
-            self["min"] = None
-            self["max"] = None
-        return _do
-
+        self["values"] = []
+        self["average"] = None
+        self["std"] = None
+        self["min"] = None
+        self["max"] = None
+        
     def dig(self, caller):
         self["values"].append( caller[self["caller_field"]] )
         self["average"] = numpy.mean(self["values"])
