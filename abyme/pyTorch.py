@@ -5,7 +5,7 @@ class SaveModel(abstract._Stage):
     def __init__(self, *args, **kwargs):
         super(SaveModel, self).__init__(["before_save", "after_save"], *args, **kwargs)
 
-    def _init(self, model, folder, base_filename, extension=".pyTorch", overwrite=False, prefix_callable=None):
+    def _init(self, model, base_filename, folder=".", extension=".pyTorch", overwrite=False, prefix_callable=None):
         if extension[0] != "." :
             ext = "."+extension
         else :
