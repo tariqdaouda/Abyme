@@ -3,11 +3,13 @@ from . import utils
 from . import exceptions
 
 import numpy
+import time
+import os
 
 class Ground(abstract._Stage):
     """docstring for Ground"""
     def __init__(self, *args, **kwargs):
-        super(Ground, self).__init__("dig", "final")
+        super(Ground, self).__init__(["dig", "final"])
     
     def dig(self, caller=None):
         try:
@@ -15,7 +17,45 @@ class Ground(abstract._Stage):
         except exceptions.EndOfEverything as e:
             print("Ended because:", e)
             self.events["final"](self)        
-            
+
+class Mkdir(abstract._Stage):
+    """docstring for Mkdir"""
+    def __init__(self, *args, **kwargs):
+        super(Mkdir, self).__init__(["folder_created", "entered_folder", "end"])
+    
+    def _init(self, folder, enter_folder=False, add_date=False):
+        self["folder"] = folder
+        if add_date :
+            self["folder"] = time.ctime().replace(" ", "-") + "_" + folder
+
+        i = 0
+        fol = self["folder"]
+        while os.path.isdir(self["folder"]) :
+            self["folder"] = fol + "_%d" % i 
+            i += 1
+
+        self["enter_folder"] = enter_folder
+  
+    def dig(self, caller):
+        os.mkdir(self["folder"])
+        self.events["folder_created"](self)
+        if self["enter_folder"] :
+            os.chdir(self["folder"])
+            self.events["entered_folder"](self)
+    
+        self.events["end"](self)
+
+class Chdir(abstract._Stage):
+    """docstring for Chdir"""
+    def __init__(self, *args, **kwargs):
+        super(Chdir, self).__init__(["dig"])
+    
+    def _init(self, folder):
+        self["folder"] = folder
+
+    def dig(self, caller):
+        os.chdir(self["folder"])
+        self.events["dig"](self)
 
 class IterrationLooper(abstract._Stage):
     """docstring for IterrationLooper"""
@@ -67,7 +107,6 @@ class If(abstract._Stage):
         val = abstract.call_if_callable(self["condition"])
         if val : 
             self.events["dig"](caller)
-
 
 class PeriodicTrigger(abstract._Stage):
     """docstring for PeriodicTrigger"""
@@ -316,77 +355,6 @@ class CSVWriter(abstract._Stage):
     """docstring for CSVWriter"""
     def __init__(self, *args, **kwargs):
         super(CSVWriter, self).__init__(["dig"], *args, **kwargs)
-
-    def _init(self, filename, fieldnames, na_handling="copy", add_id=True, csv_writer_kwargs = {}):
-        import csv
-
-        if not csv_writer_kwargs :
-            csv_writer_kwargs = {}
-
-        self["filename"] = filename
-        self["na_handling"] = na_handling
-        self["fieldnames"] = fieldnames
-        self["add_id"] = add_id
-        if self["add_id"] :
-            self["fieldnames"].insert(0, "id")
-        self["counter"] = 0
-
-        self.last_line = None
-        self.file = open(self["filename"], "w", newline="")
-        self.writer = csv.DictWriter(self.file, self["fieldnames"], **csv_writer_kwargs)
-        self.writer.writeheader()
-        self._newline()
-
-    def _newline(self) :
-        if self["na_handling"] == "copy" and self.last_line is not None :
-            self["current_line"] = dict(self.last_line)
-        else :
-            self["current_line"] = { k: "na" for k in self["fieldnames"]}
-
-        if self["add_id"]:
-            self["current_line"]["id"] = self["counter"]
-
-    def open_line(self) :
-        def _do(caller) :
-            self._newline()
-        return _do
-
-    def commit_line(self) :
-        def _do(caller):
-            self.writer.writerow(self["current_line"])
-            self.last_line = self["current_line"]        
-            self["counter"] += 1
-        return _do
-
-    def populate_current_line(self, dct) :
-        for k in dct.keys():
-            self["current_line"][k] = dct[k]
-
-    def add_dict_to_line(self, adct, prefix=None):
-        def _do(caller) :
-            dct = utils.prefix_dict_keys(adct, prefix)
-            self.populate_current_line(dct)
-        return _do
-
-    def add_caller_to_line(self, fields, prefix, focus_caller=None):
-        default_caller = focus_caller 
-        def _do( caller ) :
-            if default_caller is not None :
-                cal = default_caller
-            else :
-                cal = caller
-            dct = utils.filter_dict(cal.store, fields)
-            dct = utils.prefix_dict_keys(dct, prefix)
-            self.populate_current_line(dct)
-        return _do
-
-    def dig(self, caller):
-        self.events["dig"]()
-
-class JSONWriter(abstract._Stage):
-    """docstring for JSONWriter"""
-    def __init__(self, *args, **kwargs):
-        super(JSONWriter, self).__init__(["dig"], *args, **kwargs)
 
     def _init(self, filename, fieldnames, na_handling="copy", add_id=True, csv_writer_kwargs = {}):
         import csv
