@@ -21,7 +21,7 @@ class Ground(abstract._Stage):
 class Mkdir(abstract._Stage):
     """docstring for Mkdir"""
     def __init__(self, *args, **kwargs):
-        super(Mkdir, self).__init__(["folder_created", "entered_folder", "end"])
+        super(Mkdir, self).__init__(["start", "folder_created", "entered_folder", "end"])
     
     def _init(self, folder, enter_folder=False, add_date=False):
         self["folder"] = folder
@@ -37,6 +37,7 @@ class Mkdir(abstract._Stage):
         self["enter_folder"] = enter_folder
   
     def dig(self, caller):
+        self.events["start"](self)
         os.mkdir(self["folder"])
         self.events["folder_created"](self)
         if self["enter_folder"] :
@@ -45,6 +46,25 @@ class Mkdir(abstract._Stage):
     
         self.events["end"](self)
 
+class Run(abstract._Stage):
+    """docstring for Mkdir"""
+    def __init__(self, *args, **kwargs):
+        super(Mkdir, self).__init__(["start", "end"])
+    
+    def _init(self, capture_result, something_callable, *callable_args, **callable_kwargs):
+        self["callable"] = something_callable
+        self["callable_args"] = callable_args
+        self["callable_kwargs"] = callable_kwargs
+        self["capture_result"] = capture_result
+        self["callable_result"] = None
+
+    def dig(self, caller):
+        self.events["start"](self)
+        res = self["callable"](*self["callable_args"], **self["callable_kwargs"])
+        if self["capture_result"] :
+            self["callable_result"] = res
+        self.events["end"](self)
+        
 class Chdir(abstract._Stage):
     """docstring for Chdir"""
     def __init__(self, *args, **kwargs):
