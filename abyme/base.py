@@ -47,9 +47,9 @@ class Mkdir(abstract._Stage):
         self.events["end"](self)
 
 class Run(abstract._Stage):
-    """docstring for Mkdir"""
+    """docstring for Run"""
     def __init__(self, *args, **kwargs):
-        super(Mkdir, self).__init__(["start", "end"])
+        super(Run, self).__init__(["start", "end"])
     
     def _init(self, capture_result, something_callable, *callable_args, **callable_kwargs):
         self["callable"] = something_callable
