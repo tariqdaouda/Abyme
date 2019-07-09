@@ -34,6 +34,9 @@ class SaveModel(abstract._Stage):
         if self["prefix"]:
             base_filename = "%s%s" % (abstract.call_if_callable(self["prefix"]), base_filename)
 
+        if not os.path.isdir(self["folder"]):
+             os.mkdir(self["folder"])
+
         filename = os.path.join(self["folder"], base_filename)
 
         torch.save(self["model"], filename)
