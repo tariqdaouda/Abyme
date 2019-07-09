@@ -1,7 +1,9 @@
 from . import abstract
 import torch
+import os
 
 class SaveModel(abstract._Stage):
+    """Save a pyTorch model"""
     def __init__(self, *args, **kwargs):
         super(SaveModel, self).__init__(["before_save", "after_save"], *args, **kwargs)
 

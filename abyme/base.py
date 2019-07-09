@@ -46,6 +46,42 @@ class Mkdir(abstract._Stage):
     
         self.events["end"](self)
 
+class PerformanceProfiler(abstract._Stage):
+    """Profiles the performances"""
+    def __init__(self, *args, **kwargs):
+        super(PerformanceProfiler, self).__init__(
+            [
+                "dig",
+                "before_record_start",
+                "after_record_start",
+                "before_record_end",
+                "after_record_end",
+            ])
+    
+    def _init(self, to_int=True):
+        self["to_int"] = to_int
+        self["start_time"] = None
+        self["end_time"] = None
+        self["elapsed_time"] = None
+        
+    def record_start(self, caller):
+        self.events["before_record_end"](self)
+        self["start_time"] = time.perf_counter()
+        if self["to_int"] :
+            self["start_time"] = int(self["start_time"])
+        self.events["after_record_start"](self)
+        
+    def record_end(self, caller):
+        self.events["before_record_end"](self)
+        self["end_time"] = time.perf_counter()
+        if self["to_int"] :
+            self["end_time"] = int(self["end_time"])
+        self["elapsed_time"] = self["end_time"] - self["start_time"]
+        self.events["after_record_end"](self)
+        
+    def dig(self, caller):
+        self.events["dig"](self)
+        
 class Run(abstract._Stage):
     """docstring for Run"""
     def __init__(self, *args, **kwargs):
@@ -85,6 +121,8 @@ class IterrationLooper(abstract._Stage):
     def _init(self, nb_iterations):
         self["nb_iterations"] = nb_iterations
         self["counter"] = 0
+        self["advancement"] = self["counter"]/self["nb_iterations"] 
+        self["perc_advancement"] = (self["counter"]/self["nb_iterations"]) * 100
 
     def dig(self, caller):    
         self.events["start"](self)
@@ -94,6 +132,8 @@ class IterrationLooper(abstract._Stage):
             self["counter"] += 1
             self.events["iteration_end"](self)
             max_it -= 1
+            self["advancement"] = self["counter"]/self["nb_iterations"] 
+            self["perc_advancement"] = (self["counter"]/self["nb_iterations"]) * 100
         self.events["end"](self)
 
 class DataLooper(abstract._Stage):
@@ -377,10 +417,9 @@ class CSVWriter(abstract._Stage):
         super(CSVWriter, self).__init__(["dig"], *args, **kwargs)
 
     def _init(self, filename, fieldnames, na_handling="copy", add_id=True, csv_writer_kwargs = {}):
-        import csv
-
         if not csv_writer_kwargs :
             csv_writer_kwargs = {}
+        self.csv_writer_kwargs = csv_writer_kwargs
 
         self["filename"] = filename
         self["na_handling"] = na_handling
@@ -390,9 +429,12 @@ class CSVWriter(abstract._Stage):
             self["fieldnames"].insert(0, "id")
         self["counter"] = 0
 
+    def open(self, caller):
+        import csv
+
         self.last_line = None
         self.file = open(self["filename"], "w", newline="")
-        self.writer = csv.DictWriter(self.file, self["fieldnames"], **csv_writer_kwargs)
+        self.writer = csv.DictWriter(self.file, self["fieldnames"], **self.csv_writer_kwargs)
         self.writer.writeheader()
         self._newline()
 
