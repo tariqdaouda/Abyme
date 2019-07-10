@@ -60,15 +60,24 @@ class PerformanceProfiler(abstract._Stage):
     
     def _init(self, to_int=True):
         self["to_int"] = to_int
+        self["first_start_time"] = None
         self["start_time"] = None
         self["end_time"] = None
         self["elapsed_time"] = None
+        self["total_elapsed_time"] = None
         
     def record_start(self, caller):
         self.events["before_record_end"](self)
+        
         self["start_time"] = time.perf_counter()
         if self["to_int"] :
             self["start_time"] = int(self["start_time"])
+        
+        if not self["first_start_time"]:
+            self["first_start_time"] = self["start_time"]
+            if self["to_int"] :
+                self["first_start_time"] = int(self["first_start_time"])
+
         self.events["after_record_start"](self)
         
     def record_end(self, caller):
@@ -77,6 +86,7 @@ class PerformanceProfiler(abstract._Stage):
         if self["to_int"] :
             self["end_time"] = int(self["end_time"])
         self["elapsed_time"] = self["end_time"] - self["start_time"]
+        self["total_elapsed_time"] = self["end_time"] - self["first_start_time"]
         self.events["after_record_end"](self)
         
     def dig(self, caller):
