@@ -298,6 +298,23 @@ class PrettyPrintStore(abstract._Stage):
         
         print("{\n", "\n  ".join(res), "\n}")
 
+# class PrintDict(abstract._Stage):
+#     """docstring for PrintDict"""
+#     def __init__(self, *args, **kwargs):
+#         super(PrintDict, self).__init__(None, *args, **kwargs)
+
+#     def _init(self):
+#         self.store["data"] = {}
+
+#     def register(self, key, value):
+#         if not getattr(value, "__call__") :
+#             self.data["data"] = lambda value:value
+#         else :
+#             self.data["data"] = value
+
+#     def dig(self, caller):
+#         df = pandas.DataFrame.from_dict
+
 class CSVStreamSaver(abstract._Stage):
     """docstring for CSVStreamSaver"""
     def __init__(self, *args, **kwargs):
@@ -322,7 +339,7 @@ class CSVStreamSaver(abstract._Stage):
             self.pandas_to_csv_kwargs = pandas_to_csv_kwargs    
             for name in ["header", "index"]:
                 if name in self.pandas_to_csv_kwargs:
-                    raise ValueError("Pandas argument %s has predefided and cannot be changed" % name)
+                    raise ValueError("Pandas argument %s has been predefined and cannot be changed" % name)
         
         self.file = open(filemame, "w")
 
@@ -388,23 +405,23 @@ class Stats(abstract._Stage):
         self["max"] = numpy.max(self["values"])
         self.events["dig"](self)
 
-class StoreAggregator(abstract._Stage):
-    """docstring for StoreAggregator"""
-    def __init__(self, *args, **kwargs):
-        super(StoreAggregator, self).__init__(["dig"], *args, **kwargs)
+# class StoreAggregator(abstract._Stage):
+#     """docstring for StoreAggregator"""
+#     def __init__(self, *args, **kwargs):
+#         super(StoreAggregator, self).__init__(["dig"], *args, **kwargs)
     
-    def _init(self, select_fields, prefix):
-        self["select_fields"] = select_fields
-        self["prefix"] = prefix
-        self["aggregate"] = {}
+#     def _init(self, select_fields, prefix):
+#         self["select_fields"] = select_fields
+#         self["prefix"] = prefix
+#         self["aggregate"] = {}
 
-    def aggregate(self, caller):
-        self["aggregate"].update(
-            utils.filter_dict(caller, self["select_fields"])
-        )
+#     def aggregate(self, caller):
+#         self["aggregate"].update(
+#             utils.filter_dict(caller, self["select_fields"])
+#         )
 
-    def dig(self, caller):
-        self.events["dig"](self)
+#     def dig(self, caller):
+#         self.events["dig"](self)
 
 class Break(abstract._Stage):
     """docstring for Break"""
@@ -421,15 +438,69 @@ class Break(abstract._Stage):
         else :
             raise exceptions.EndOfEverything(self["reason"])
 
+class ClearPrompt(abstract._Stage):
+    """docstring for ClearPrompt"""
+    def __init__(self, *args, **kwargs):
+        super(ClearPrompt, self).__init__(["dig"], *args, **kwargs)
+    
+    def _init(self, *_, **__):
+        pass
+
+    def dig(self, caller):
+        import os
+        if os.system("cls") > 0:
+            os.system("clear")
+        self.events["dig"](self)
+
+class CleanPrinter(abstract._Stage):
+    """docstring for CleanPrinter"""
+    def __init__(self, *args, **kwargs):
+        super(CleanPrinter, self).__init__(["dig"], *args, **kwargs)
+    
+    def _init(self, reset_prompt=True, flush=True, auto_call=True, end_of_line="\n"):
+        self.last_size = None
+        self.reset_prompt = reset_prompt
+        self.flush = flush
+        self.auto_call = auto_call
+        self.end_of_line = end_of_line
+
+    def print(self, something):
+        def _do(caller) :
+            import sys
+
+            if self.auto_call and getattr(something, "__call__") :
+                string = str(something()) + self.end_of_line
+            else :
+                string = str(something) + self.end_of_line
+            
+            if self.last_size is not None and self.reset_prompt:
+                sys.stdout.write('\b' * self.last_size)
+                sys.stdout.write('\r' * self.last_size)
+                self.last_size = len(string)
+            sys.stdout.write(string)
+        
+            if self.flush:
+                sys.stdout.flush()
+        return _do
+
+    def dig(self, caller):
+        self.events["dig"](self)
+
 class CSVWriter(abstract._Stage):
     """docstring for CSVWriter"""
     def __init__(self, *args, **kwargs):
         super(CSVWriter, self).__init__(["dig"], *args, **kwargs)
 
-    def _init(self, filename, fieldnames, na_handling="copy", add_id=True, csv_writer_kwargs = {}):
+    def _init(self, filename, fieldnames, na_handling="copy", add_id=True, csv_writer_kwargs = {}, tail_length=5):
         if not csv_writer_kwargs :
             csv_writer_kwargs = {}
         self.csv_writer_kwargs = csv_writer_kwargs
+
+        self.tail_length = tail_length
+        if self.tail_length is not None:
+            self.memorised_tail = []
+        else :
+            self.memorised_tail = None
 
         self["filename"] = filename
         self["na_handling"] = na_handling
@@ -466,7 +537,14 @@ class CSVWriter(abstract._Stage):
         def _do(caller):
             self.writer.writerow(self["current_line"])
             self.last_line = self["current_line"]        
-            self["counter"] += 1
+            self["counter"] += 1    
+    
+            if self.memorised_tail is not None :
+                try:
+                    self.memorised_tail[self["counter"] % self.tail_length] = self.last_line
+                except IndexError:
+                    self.memorised_tail.append(self.last_line)
+
         return _do
 
     def populate_current_line(self, dct) :
@@ -491,5 +569,14 @@ class CSVWriter(abstract._Stage):
             self.populate_current_line(dct)
         return _do
 
+    def tail(self, nlines=5):
+        def _do(*caller) :
+            if self.memorised_tail is not None:
+                import pandas
+                df = pandas.DataFrame(self.memorised_tail)
+                return df.tail(min( nlines, len(df) ))
+        return _do
+
     def dig(self, caller):
         self.events["dig"]()
+

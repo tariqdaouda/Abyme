@@ -7,7 +7,7 @@ class SaveModel(abstract._Stage):
     def __init__(self, *args, **kwargs):
         super(SaveModel, self).__init__(["before_save", "after_save"], *args, **kwargs)
 
-    def _init(self, model, base_filename, folder=".", extension=".pyTorch", overwrite=False, prefix_callable=None):
+    def _init(self, model, base_filename, folder=".", extension=".pyTorch", overwrite=False, prefix_callable=None, save_state_dict=True):
         if extension[0] != "." :
             ext = "."+extension
         else :
@@ -22,6 +22,7 @@ class SaveModel(abstract._Stage):
         self["folder"] = folder
         self["model"] = model
         self['overwrite'] = overwrite
+        self["save_state_dict"] = save_state_dict
 
     def dig(self, caller):
         self.events["before_save"](self)
@@ -39,7 +40,11 @@ class SaveModel(abstract._Stage):
 
         filename = os.path.join(self["folder"], base_filename)
 
-        torch.save(self["model"], filename)
+        if self["save_state_dict"]:
+            torch.save(self["model"].state_dict(), filename)
+        else:
+            torch.save(self["model"], filename)
+    
         self.events["after_save"](self)
 
 class SupervisedPass(abstract._Stage):
