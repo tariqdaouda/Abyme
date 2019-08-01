@@ -41,16 +41,20 @@ class SaveModel(abstract._Stage):
 
         filename = os.path.join(self["folder"], base_filename)
 
+        res = {
+            "model_state_dict": self["model"].state_dict()      
+        }
+        if self["optimizer"] :
+            res["optimizer"] = self["optimizer"].state_dict()
+
+        if self["loss"]:
+          res["loss"] = self["loss"]
+
         torch.save(
-            {
-                "model_state_dict": self["model"].state_dict(),
-                "optimizer_state_dict": self["optimizer"].state_dict(),
-                "loss": self["loss"],
-            },
+            res,
             filename
         )
-    
-    
+        
         self.events["after_save"](self)
 
 class SupervisedPass(abstract._Stage):
