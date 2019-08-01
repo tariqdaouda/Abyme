@@ -22,7 +22,7 @@ class SaveModel(abstract._Stage):
         self["folder"] = folder
         self["model"] = model
         self["optimizer"] = optimizer
-        self["looss"] = looss
+        self["loss"] = loss
         self['overwrite'] = overwrite
     
     def dig(self, caller):
