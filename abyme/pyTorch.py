@@ -7,7 +7,7 @@ class SaveModel(abstract._Stage):
     def __init__(self, *args, **kwargs):
         super(SaveModel, self).__init__(["before_save", "after_save"], *args, **kwargs)
 
-    def _init(self, model, base_filename, folder=".", extension=".pyTorch", overwrite=False, prefix_callable=None, save_state_dict=True):
+    def _init(self, model, base_filename, optimizer=None, loss=None, folder=".", extension=".pyTorch", overwrite=False, prefix_callable=None):
         if extension[0] != "." :
             ext = "."+extension
         else :
@@ -21,9 +21,10 @@ class SaveModel(abstract._Stage):
         self["prefix"] = prefix_callable
         self["folder"] = folder
         self["model"] = model
+        self["optimizer"] = optimizer
+        self["looss"] = looss
         self['overwrite'] = overwrite
-        self["save_state_dict"] = save_state_dict
-
+    
     def dig(self, caller):
         self.events["before_save"](self)
 
@@ -40,10 +41,15 @@ class SaveModel(abstract._Stage):
 
         filename = os.path.join(self["folder"], base_filename)
 
-        if self["save_state_dict"]:
-            torch.save(self["model"].state_dict(), filename)
-        else:
-            torch.save(self["model"], filename)
+        torch.save(
+            {
+                "model_state_dict": self["model"].state_dict(),
+                "optimizer_state_dict": self["optimizer"].state_dict(),
+                "loss": self["loss"],
+            },
+            filename
+        )
+    
     
         self.events["after_save"](self)
 
